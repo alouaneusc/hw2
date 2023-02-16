@@ -9,6 +9,8 @@
 #include "db_parser.h"
 #include "product_parser.h"
 #include "util.h"
+#include "mydatastore.h"
+#include "datastore.h"
 
 using namespace std;
 struct ProdNameSorter {
@@ -17,6 +19,7 @@ struct ProdNameSorter {
     }
 };
 void displayProducts(vector<Product*>& hits);
+void displayCart(list<Product*>& cart);
 
 int main(int argc, char* argv[])
 {
@@ -25,13 +28,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    /****************
-     * Declare your derived DataStore object here replacing
-     *  DataStore type to your derived type
-     ****************/
-    DataStore ds;
-
-
+    // Instantiate datastore
+    MyDataStore ds;
 
     // Instantiate the individual section and product parsers we want
     ProductSectionParser* productSectionParser = new ProductSectionParser;
@@ -50,6 +48,7 @@ int main(int argc, char* argv[])
         cerr << "Error parsing!" << endl;
         return 1;
     }
+    // ds.dump(cout);
 
     cout << "=====================================" << endl;
     cout << "Menu: " << endl;
@@ -98,12 +97,51 @@ int main(int argc, char* argv[])
                     ofile.close();
                 }
                 done = true;
+            } else if( cmd == "ADD") { // add a product to cart
+                string username;
+                int index = -1;
+                bool invalidRequest = false;
+                if (ss >> username && ss >> index) {
+                    index --;
+                    if (index >= 0 && index < (int)hits.size()) {
+                        username = convToLower(username);
+                        invalidRequest = !ds.addToCart(username, hits[index]);
+                    } else {
+                        invalidRequest = true;
+                    }
+                } else {
+                    invalidRequest = true;
+                }
+
+                if(invalidRequest) {
+                    cout << "Invalid request" << endl;
+                }
+            } else if ( cmd == "VIEWCART") { // view a user's cart
+                string username;
+                bool invalidUsername = false;
+                if (ss >> username) {
+                    username = convToLower(username);
+                    std::list<Product*> cart = ds.findCart(username, invalidUsername);
+                    displayCart(cart);
+                } else {
+                    invalidUsername = true;
+                }
+                if (invalidUsername) {
+                    cout << "Invalid username" << endl;
+                }
+            } else if ( cmd == "BUYCART") { // checkout a user's cart
+                string username;
+                bool invalidUsername = false;
+                if (ss >> username) {
+                    username = convToLower(username);
+                    invalidUsername = !ds.buyCart(username);
+                } else {
+                    invalidUsername = true;
+                }
+                if (invalidUsername) {
+                    cout << "Invalid username" << endl;
+                }
             }
-	    /* Add support for other commands here */
-
-
-
-
             else {
                 cout << "Unknown command" << endl;
             }
@@ -123,6 +161,24 @@ void displayProducts(vector<Product*>& hits)
     std::sort(hits.begin(), hits.end(), ProdNameSorter());
     for(vector<Product*>::iterator it = hits.begin(); it != hits.end(); ++it) {
         cout << "Hit " << setw(3) << resultNo << endl;
+        cout << (*it)->displayString() << endl;
+        cout << endl;
+        resultNo++;
+    }
+}
+
+/**
+* Display cart (a list of products)
+*/
+void displayCart(list<Product*>& cart)
+{
+    int resultNo = 1;
+    if (cart.begin() == cart.end()) {
+        return;
+    }
+
+    for(list<Product*>::iterator it = cart.begin(); it != cart.end(); ++it) {
+        cout << "Item " << resultNo << endl;
         cout << (*it)->displayString() << endl;
         cout << endl;
         resultNo++;
